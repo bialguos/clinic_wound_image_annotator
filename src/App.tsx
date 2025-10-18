@@ -1,24 +1,34 @@
 import { useState } from 'react';
 import { Heart } from 'lucide-react';
-import { Patient, WoundRecord } from './lib/supabase';
+import { Patient, WoundRecord, Annotation, Transformations } from './lib/supabase';
 import PatientList from './components/PatientList';
 import PatientDetail from './components/PatientDetail';
-import WoundRecordEditor from './components/WoundRecordEditor';
+import ImageEditor from './components/ImageEditor';
 
 type View = 'list' | 'detail' | 'editor';
 
 function App() {
   const [view, setView] = useState<View>('list');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [selectedRecord, setSelectedRecord] = useState<WoundRecord | null>(null);
+  const [editingImage, setEditingImage] = useState<{ imageUrl: string; annotations: Annotation[]; transformations: Transformations } | null>(null);
 
   const handleSelectPatient = (patient: Patient) => {
+    // Open ImageEditor directly for the selected patient with a placeholder image
     setSelectedPatient(patient);
-    setView('detail');
+    const svg = generatePatientSvgDataUrl(patient.full_name);
+    setEditingImage({
+      imageUrl: svg,
+      annotations: [],
+      transformations: {}
+    });
+    setView('editor');
   };
 
   const handleOpenWoundRecord = (record: WoundRecord) => {
-    setSelectedRecord(record);
+    // Open image editor for a wound record (use title as placeholder)
+    const svg = generatePatientSvgDataUrl(record.title || 'Registro');
+    setEditingImage({ imageUrl: svg, annotations: [], transformations: {} });
+    setSelectedPatient(null);
     setView('editor');
   };
 
@@ -27,15 +37,7 @@ function App() {
     setView('list');
   };
 
-  const handleCloseEditor = () => {
-    setSelectedRecord(null);
-    setView('detail');
-  };
-
-  const handleSaveEditor = () => {
-    setSelectedRecord(null);
-    setView('detail');
-  };
+  
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -63,12 +65,21 @@ function App() {
           />
         )}
 
-        {view === 'editor' && selectedPatient && (
-          <WoundRecordEditor
-            record={selectedRecord}
-            patientId={selectedPatient.id}
-            onClose={handleCloseEditor}
-            onSave={handleSaveEditor}
+        {view === 'editor' && selectedPatient && editingImage && (
+          <ImageEditor
+            imageUrl={editingImage.imageUrl}
+            annotations={editingImage.annotations}
+            transformations={editingImage.transformations}
+            onSave={(annotations, transformations) => {
+              // For now just close editor after save; optionally persist later
+              console.log('Saved annotations for', selectedPatient?.id, annotations, transformations);
+              setEditingImage(null);
+              setView('list');
+            }}
+            onClose={() => {
+              setEditingImage(null);
+              setView('list');
+            }}
           />
         )}
       </div>
@@ -77,3 +88,22 @@ function App() {
 }
 
 export default App;
+
+function escapeXml(unsafe: string) {
+  return unsafe.replace(/[<>&"']/g, function (c) {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&#039;';
+      default: return c;
+    }
+  });
+}
+
+function generatePatientSvgDataUrl(name: string) {
+  const safe = escapeXml(name);
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><rect width='100%' height='100%' fill='#ffffff'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#0f172a' font-family='Inter, Arial, sans-serif' font-size='48'>${safe}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
