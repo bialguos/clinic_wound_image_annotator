@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, Save, Image as ImageIcon } from 'lucide-react';
+import { X, Save, Image as ImageIcon, Trash2, Search } from 'lucide-react';
 import TransformToolbar from './TransformToolbar';
 import TextAnnotationPanel from './TextAnnotationPanel';
 import AnnotationEditor from './AnnotationEditor';
 import { Annotation, Transformations } from '../lib/supabase';
+import { galleryStorage, GalleryImage } from '../lib/galleryStorage';
 
 type ImageEditorProps = {
   imageUrl: string;
@@ -24,6 +25,10 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentImageUrl, setCurrentImageUrl] = useState<string>(imageUrl);
   const [showGallery, setShowGallery] = useState(false);
+  const [showSaveToGallery, setShowSaveToGallery] = useState(false);
+  const [newImageName, setNewImageName] = useState('');
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [gallerySearchQuery, setGallerySearchQuery] = useState('');
   const [isDrawing, setIsDrawing] = useState(false);
   const [tempPath, setTempPath] = useState<Array<{x:number;y:number}>>([]);
   const [tempShape, setTempShape] = useState<{startX:number;startY:number;endX:number;endY:number} | null>(null);
@@ -43,6 +48,11 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   useEffect(() => {
     setCurrentImageUrl(imageUrl);
   }, [imageUrl]);
+
+  useEffect(() => {
+    // Load gallery images on mount
+    setGalleryImages(galleryStorage.getAll());
+  }, []);
 
   const presetImages = [
     `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='600'><rect width='100%' height='100%' fill='#f8fafc'/><circle cx='400' cy='300' r='120' fill='#60a5fa'/><text x='50%' y='90%' font-size='28' text-anchor='middle' fill='#0f172a'>Preset 1</text></svg>`)}`,
@@ -106,6 +116,45 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       setShowGallery(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleAddToGallery = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      // Set the temporary data URL for the modal
+      (e.target as any).tempDataUrl = dataUrl;
+      // Show the save modal to get the name
+      setShowSaveToGallery(true);
+      // Store the data URL temporarily in state
+      setCurrentImageUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveImageToGallery = () => {
+    if (!newImageName.trim()) {
+      alert('Por favor ingresa un nombre para la imagen');
+      return;
+    }
+
+    // Save current image URL to gallery
+    galleryStorage.add(newImageName.trim(), currentImageUrl);
+    setGalleryImages(galleryStorage.getAll());
+    setNewImageName('');
+    setShowSaveToGallery(false);
+    setShowGallery(false);
+    alert('Imagen guardada en la galería');
+  };
+
+  const handleDeleteFromGallery = (id: string) => {
+    if (confirm('¿Estás seguro de eliminar esta imagen de la galería?')) {
+      galleryStorage.delete(id);
+      setGalleryImages(galleryStorage.getAll());
+    }
   };
 
   // Effect 1: Load image when URL changes
@@ -876,17 +925,125 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       </div>
       {showGallery && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold">Galería de imágenes</h3>
-              <button onClick={() => setShowGallery(false)} className="px-2 py-1 bg-gray-100 rounded">Cerrar</button>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 transition-colors">
+                  <input type="file" accept="image/*" onChange={handleAddToGallery} className="hidden" />
+                  <ImageIcon className="w-4 h-4" />
+                  Añadir
+                </label>
+                <button onClick={() => setShowGallery(false)} className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">Cerrar</button>
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {presetImages.map((p, idx) => (
-                <button key={idx} onClick={() => { setCurrentImageUrl(p); setShowGallery(false); }} className="border rounded overflow-hidden">
-                  <img src={p} alt={`preset-${idx}`} className="w-full h-40 object-cover" />
-                </button>
-              ))}
+
+            {/* Search bar */}
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={gallerySearchQuery}
+                  onChange={(e) => setGallerySearchQuery(e.target.value)}
+                  placeholder="Buscar imágenes por nombre..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Saved gallery images */}
+              {galleryImages.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Imágenes Guardadas</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    {galleryStorage.search(gallerySearchQuery).map((img) => (
+                      <div key={img.id} className="border rounded overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                        <button
+                          onClick={() => { setCurrentImageUrl(img.dataUrl); setShowGallery(false); }}
+                          className="w-full"
+                        >
+                          <img src={img.dataUrl} alt={img.name} className="w-full h-40 object-cover" />
+                        </button>
+                        <div className="p-2 border-t">
+                          <p className="text-sm font-medium text-gray-700 truncate" title={img.name}>{img.name}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-xs text-gray-500">
+                              {new Date(img.createdAt).toLocaleDateString()}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteFromGallery(img.id)}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {gallerySearchQuery && galleryStorage.search(gallerySearchQuery).length === 0 && (
+                    <p className="text-center text-gray-500 py-4">No se encontraron imágenes con "{gallerySearchQuery}"</p>
+                  )}
+                </div>
+              )}
+
+              {/* Preset images */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Imágenes Predefinidas</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  {presetImages.map((p, idx) => (
+                    <button key={idx} onClick={() => { setCurrentImageUrl(p); setShowGallery(false); }} className="border rounded overflow-hidden hover:shadow-md transition-shadow">
+                      <img src={p} alt={`preset-${idx}`} className="w-full h-40 object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSaveToGallery && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold mb-4">Guardar Imagen en Galería</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nombre de la imagen
+              </label>
+              <input
+                type="text"
+                value={newImageName}
+                onChange={(e) => setNewImageName(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveImageToGallery();
+                  }
+                }}
+                placeholder="Ej: Imagen de herida 1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveImageToGallery}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium"
+              >
+                Guardar
+              </button>
+              <button
+                onClick={() => {
+                  setShowSaveToGallery(false);
+                  setNewImageName('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
