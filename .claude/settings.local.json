@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npm run typecheck)",
-      "Bash(git config core.longpaths true)"
+      "Bash(git config core.longpaths true)",
+      "Bash(npm run deploy)",
+      "Bash(set TMPDIR=C:Temp)",
+      "Bash(git init)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"Deploy\")",
+      "Bash(git branch -M gh-pages)",
+      "Bash(git remote add origin https://github.com/bialguos/clinic_wound_image_annotator.git)",
+      "Bash(git push -f origin gh-pages)"
     ],
     "deny": [],
     "ask": []
