@@ -1,0 +1,1 @@
+clinic_wound_image_annotator
