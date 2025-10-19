@@ -20,7 +20,8 @@
       "Bash(touch .nojekyll)",
       "Bash(git add .nojekyll)",
       "Bash(git push origin gh-pages)",
-      "Bash(chmod +x deploy.sh)"
+      "Bash(chmod +x deploy.sh)",
+      "Bash(cat deploy.bat)"
     ],
     "deny": [],
     "ask": []
