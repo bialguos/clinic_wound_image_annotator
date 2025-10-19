@@ -14,7 +14,12 @@
       "Bash(git fetch origin gh-pages)",
       "Bash(npm run build)",
       "Bash(git checkout gh-pages)",
-      "Bash(git commit -m \"Add .nojekyll\")"
+      "Bash(git commit -m \"Add .nojekyll\")",
+      "Bash(if exist \"node_modules\\.cache\\gh-pages\" rmdir /s /q \"node_modules\\.cache\\gh-pages\")",
+      "Bash(rm -rf \"node_modules/.cache/gh-pages\")",
+      "Bash(touch .nojekyll)",
+      "Bash(git add .nojekyll)",
+      "Bash(git push origin gh-pages)"
     ],
     "deny": [],
     "ask": []
