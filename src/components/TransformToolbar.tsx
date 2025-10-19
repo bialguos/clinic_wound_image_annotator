@@ -11,7 +11,8 @@ import {
   ZoomOut,
   Contrast,
   Palette,
-  Circle
+  Circle,
+  ArrowRight
 } from 'lucide-react';
 
 type TransformToolbarProps = {
@@ -106,6 +107,17 @@ export default function TransformToolbar({
               >
                 <Circle className="w-4 h-4" />
                 Círculo
+              </button>
+              <button
+                onClick={() => onShapeTypeChange('arrow')}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm border rounded transition-colors ${
+                  shapeType === 'arrow'
+                    ? 'bg-blue-100 border-blue-300 text-blue-700'
+                    : 'bg-white hover:bg-gray-50'
+                }`}
+              >
+                <ArrowRight className="w-4 h-4" />
+                Flecha
               </button>
             </div>
           </div>

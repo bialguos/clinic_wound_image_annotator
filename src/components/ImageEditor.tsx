@@ -40,7 +40,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<{x: number; y: number}>({x: 0, y: 0});
-  const [shapeType, setShapeType] = useState<'rect' | 'circle'>('rect');
+  const [shapeType, setShapeType] = useState<'rect' | 'circle' | 'arrow'>('rect');
   const [resizingHandle, setResizingHandle] = useState<string | null>(null);
   const [contrast, setContrast] = useState<number>(100); // 0-200, 100 is normal
   const [invertColors, setInvertColors] = useState<boolean>(false);
@@ -176,6 +176,11 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
           } else if (data.kind === 'circle') {
             data.cx -= x;
             data.cy -= y;
+          } else if (data.kind === 'arrow') {
+            data.x1 -= x;
+            data.y1 -= y;
+            data.x2 -= x;
+            data.y2 -= y;
           }
           return { ...ann, content: JSON.stringify(data), x: ann.x - x, y: ann.y - y };
         } catch (e) {
@@ -482,6 +487,72 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
             ctx.arc(adjCx, adjCy, data.r, 0, Math.PI * 2);
             if (data.fill) ctx.fill();
             ctx.stroke();
+          } else if (data.kind === 'arrow') {
+            // Calculate center point for rotation
+            const centerX = (data.x1 + data.x2) / 2;
+            const centerY = (data.y1 + data.y2) / 2;
+            const adjCenterX = centerX - canvas.width / 2;
+            const adjCenterY = centerY - canvas.height / 2;
+
+            // Apply rotation if specified
+            if (data.rotation) {
+              ctx.save();
+              ctx.translate(adjCenterX, adjCenterY);
+              ctx.rotate((data.rotation * Math.PI) / 180);
+              ctx.translate(-adjCenterX, -adjCenterY);
+            }
+
+            // Draw arrow line
+            const adjX1 = data.x1 - canvas.width / 2;
+            const adjY1 = data.y1 - canvas.height / 2;
+            const adjX2 = data.x2 - canvas.width / 2;
+            const adjY2 = data.y2 - canvas.height / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(adjX1, adjY1);
+            ctx.lineTo(adjX2, adjY2);
+            ctx.stroke();
+
+            // Draw arrowheads
+            const headLength = 15;
+            const angle = Math.atan2(adjY2 - adjY1, adjX2 - adjX1);
+
+            // Draw arrowhead at end
+            if (data.arrowDirection === 'end' || data.arrowDirection === 'both') {
+              ctx.beginPath();
+              ctx.moveTo(adjX2, adjY2);
+              ctx.lineTo(
+                adjX2 - headLength * Math.cos(angle - Math.PI / 6),
+                adjY2 - headLength * Math.sin(angle - Math.PI / 6)
+              );
+              ctx.moveTo(adjX2, adjY2);
+              ctx.lineTo(
+                adjX2 - headLength * Math.cos(angle + Math.PI / 6),
+                adjY2 - headLength * Math.sin(angle + Math.PI / 6)
+              );
+              ctx.stroke();
+            }
+
+            // Draw arrowhead at start
+            if (data.arrowDirection === 'start' || data.arrowDirection === 'both') {
+              ctx.beginPath();
+              ctx.moveTo(adjX1, adjY1);
+              ctx.lineTo(
+                adjX1 + headLength * Math.cos(angle - Math.PI / 6),
+                adjY1 + headLength * Math.sin(angle - Math.PI / 6)
+              );
+              ctx.moveTo(adjX1, adjY1);
+              ctx.lineTo(
+                adjX1 + headLength * Math.cos(angle + Math.PI / 6),
+                adjY1 + headLength * Math.sin(angle + Math.PI / 6)
+              );
+              ctx.stroke();
+            }
+
+            // Restore context if rotation was applied
+            if (data.rotation) {
+              ctx.restore();
+            }
           }
           ctx.restore();
         } catch (e) {
@@ -512,11 +583,52 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       ctx.save();
       ctx.strokeStyle = '#0000ff';
       ctx.lineWidth = 2;
-      const x = Math.min(tempShape.startX, tempShape.endX) - canvas.width / 2;
-      const y = Math.min(tempShape.startY, tempShape.endY) - canvas.height / 2;
-      const w = Math.abs(tempShape.endX - tempShape.startX);
-      const h = Math.abs(tempShape.endY - tempShape.startY);
-      ctx.strokeRect(x, y, w, h);
+
+      if (shapeType === 'arrow') {
+        // Draw arrow preview
+        const adjX1 = tempShape.startX - canvas.width / 2;
+        const adjY1 = tempShape.startY - canvas.height / 2;
+        const adjX2 = tempShape.endX - canvas.width / 2;
+        const adjY2 = tempShape.endY - canvas.height / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(adjX1, adjY1);
+        ctx.lineTo(adjX2, adjY2);
+        ctx.stroke();
+
+        // Draw arrowhead preview
+        const headLength = 15;
+        const angle = Math.atan2(adjY2 - adjY1, adjX2 - adjX1);
+        ctx.beginPath();
+        ctx.moveTo(adjX2, adjY2);
+        ctx.lineTo(
+          adjX2 - headLength * Math.cos(angle - Math.PI / 6),
+          adjY2 - headLength * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.moveTo(adjX2, adjY2);
+        ctx.lineTo(
+          adjX2 - headLength * Math.cos(angle + Math.PI / 6),
+          adjY2 - headLength * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.stroke();
+      } else {
+        // Draw rectangle/circle preview
+        const x = Math.min(tempShape.startX, tempShape.endX) - canvas.width / 2;
+        const y = Math.min(tempShape.startY, tempShape.endY) - canvas.height / 2;
+        const w = Math.abs(tempShape.endX - tempShape.startX);
+        const h = Math.abs(tempShape.endY - tempShape.startY);
+
+        if (shapeType === 'circle') {
+          const cx = x + w / 2;
+          const cy = y + h / 2;
+          const r = Math.max(w, h) / 2;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          ctx.strokeRect(x, y, w, h);
+        }
+      }
       ctx.restore();
     }
 
@@ -569,7 +681,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       ctx.fillRect(cropX + cropW - handleSize/2, cropY + cropH - handleSize/2, handleSize, handleSize);
     }
 
-    // Draw selection indicator
+    // Draw selection indicator (in absolute coordinates, after ctx.restore)
     if (selectedAnnotationId) {
       const selectedAnn = annotations.find(a => a.id === selectedAnnotationId);
       if (selectedAnn) {
@@ -579,18 +691,16 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
           ctx.strokeStyle = '#3b82f6';
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
-          // Adjust to centered coordinates
-          const adjX = bounds.x - canvas.width / 2;
-          const adjY = bounds.y - canvas.height / 2;
-          ctx.strokeRect(adjX, adjY, bounds.width, bounds.height);
+          // Use absolute coordinates (no adjustment needed after restore)
+          ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
 
           // Draw corner handles
           const handleSize = 8;
           ctx.fillStyle = '#3b82f6';
-          ctx.fillRect(adjX - handleSize/2, adjY - handleSize/2, handleSize, handleSize);
-          ctx.fillRect(adjX + bounds.width - handleSize/2, adjY - handleSize/2, handleSize, handleSize);
-          ctx.fillRect(adjX - handleSize/2, adjY + bounds.height - handleSize/2, handleSize, handleSize);
-          ctx.fillRect(adjX + bounds.width - handleSize/2, adjY + bounds.height - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(bounds.x - handleSize/2, bounds.y - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(bounds.x + bounds.width - handleSize/2, bounds.y - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(bounds.x - handleSize/2, bounds.y + bounds.height - handleSize/2, handleSize, handleSize);
+          ctx.fillRect(bounds.x + bounds.width - handleSize/2, bounds.y + bounds.height - handleSize/2, handleSize, handleSize);
 
           ctx.restore();
         }
@@ -648,6 +758,53 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
             width: data.r * 2 + 10,
             height: data.r * 2 + 10
           };
+        } else if (data.kind === 'arrow') {
+          // If arrow has rotation, calculate rotated bounding box
+          if (data.rotation) {
+            const centerX = (data.x1 + data.x2) / 2;
+            const centerY = (data.y1 + data.y2) / 2;
+            const angle = (data.rotation * Math.PI) / 180;
+
+            // Calculate rotated points
+            const points = [
+              { x: data.x1, y: data.y1 },
+              { x: data.x2, y: data.y2 }
+            ];
+
+            const rotatedPoints = points.map(p => {
+              const dx = p.x - centerX;
+              const dy = p.y - centerY;
+              return {
+                x: centerX + dx * Math.cos(angle) - dy * Math.sin(angle),
+                y: centerY + dx * Math.sin(angle) + dy * Math.cos(angle)
+              };
+            });
+
+            const xs = rotatedPoints.map(p => p.x);
+            const ys = rotatedPoints.map(p => p.y);
+            const minX = Math.min(...xs);
+            const maxX = Math.max(...xs);
+            const minY = Math.min(...ys);
+            const maxY = Math.max(...ys);
+
+            return {
+              x: minX - 10,
+              y: minY - 10,
+              width: maxX - minX + 20,
+              height: maxY - minY + 20
+            };
+          } else {
+            const minX = Math.min(data.x1, data.x2);
+            const maxX = Math.max(data.x1, data.x2);
+            const minY = Math.min(data.y1, data.y2);
+            const maxY = Math.max(data.y1, data.y2);
+            return {
+              x: minX - 10,
+              y: minY - 10,
+              width: maxX - minX + 20,
+              height: maxY - minY + 20
+            };
+          }
         }
       } catch (e) {
         return null;
@@ -860,6 +1017,11 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
               } else if (data.kind === 'circle') {
                 data.cx += deltaX;
                 data.cy += deltaY;
+              } else if (data.kind === 'arrow') {
+                data.x1 += deltaX;
+                data.y1 += deltaY;
+                data.x2 += deltaX;
+                data.y2 += deltaY;
               }
               return { ...ann, content: JSON.stringify(data), x: newX, y: newY };
             } catch (e) {
@@ -921,11 +1083,23 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       let data: any;
       if (shapeType === 'rect') {
         data = { kind: 'rect', x, y, w, h, stroke: '#000000', strokeWidth: 2, fill: 'transparent' };
-      } else {
+      } else if (shapeType === 'circle') {
         const cx = x + w / 2;
         const cy = y + h / 2;
         const r = Math.max(w, h) / 2;
         data = { kind: 'circle', cx, cy, r, stroke: '#000000', strokeWidth: 2, fill: 'transparent' };
+      } else if (shapeType === 'arrow') {
+        // Arrow from start to end point, with arrowDirection: 'end' (default), 'start', or 'both'
+        data = {
+          kind: 'arrow',
+          x1: shape.startX,
+          y1: shape.startY,
+          x2: shape.endX,
+          y2: shape.endY,
+          stroke: '#000000',
+          strokeWidth: 2,
+          arrowDirection: 'end' // can be 'start', 'end', or 'both'
+        };
       }
       const newAnn: Annotation = {
         id: crypto.randomUUID(),

@@ -99,8 +99,64 @@ export default function AnnotationEditor({ annotation, onUpdate, onDelete }: Ann
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-            <p className="text-sm text-gray-600 capitalize">{shapeData.kind === 'rect' ? 'Rectángulo' : 'Círculo'}</p>
+            <p className="text-sm text-gray-600 capitalize">
+              {shapeData.kind === 'rect' ? 'Rectángulo' : shapeData.kind === 'circle' ? 'Círculo' : 'Flecha'}
+            </p>
           </div>
+
+          {shapeData.kind === 'arrow' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dirección de la flecha</label>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setShapeData({ ...shapeData, arrowDirection: 'end' })}
+                    className={`w-full px-3 py-2 text-sm border rounded transition-colors ${
+                      shapeData.arrowDirection === 'end'
+                        ? 'bg-blue-100 border-blue-300 text-blue-700'
+                        : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    → Flecha al final
+                  </button>
+                  <button
+                    onClick={() => setShapeData({ ...shapeData, arrowDirection: 'start' })}
+                    className={`w-full px-3 py-2 text-sm border rounded transition-colors ${
+                      shapeData.arrowDirection === 'start'
+                        ? 'bg-blue-100 border-blue-300 text-blue-700'
+                        : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    ← Flecha al inicio
+                  </button>
+                  <button
+                    onClick={() => setShapeData({ ...shapeData, arrowDirection: 'both' })}
+                    className={`w-full px-3 py-2 text-sm border rounded transition-colors ${
+                      shapeData.arrowDirection === 'both'
+                        ? 'bg-blue-100 border-blue-300 text-blue-700'
+                        : 'bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    ↔ Flecha en ambos extremos
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rotación: {shapeData.rotation || 0}°
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  value={shapeData.rotation || 0}
+                  onChange={(e) => setShapeData({ ...shapeData, rotation: Number(e.target.value) })}
+                  className="w-full"
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Color del borde</label>
@@ -126,23 +182,25 @@ export default function AnnotationEditor({ annotation, onUpdate, onDelete }: Ann
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Color de relleno</label>
-            <div className="flex gap-2">
-              <input
-                type="color"
-                value={shapeData.fill === 'transparent' ? '#ffffff' : (shapeData.fill || '#ffffff')}
-                onChange={(e) => setShapeData({ ...shapeData, fill: e.target.value })}
-                className="flex-1 h-10 rounded cursor-pointer"
-              />
-              <button
-                onClick={() => setShapeData({ ...shapeData, fill: 'transparent' })}
-                className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
-              >
-                Sin relleno
-              </button>
+          {shapeData.kind !== 'arrow' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Color de relleno</label>
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={shapeData.fill === 'transparent' ? '#ffffff' : (shapeData.fill || '#ffffff')}
+                  onChange={(e) => setShapeData({ ...shapeData, fill: e.target.value })}
+                  className="flex-1 h-10 rounded cursor-pointer"
+                />
+                <button
+                  onClick={() => setShapeData({ ...shapeData, fill: 'transparent' })}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm"
+                >
+                  Sin relleno
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex gap-2">
             <button
