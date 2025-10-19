@@ -19,7 +19,8 @@
       "Bash(rm -rf \"node_modules/.cache/gh-pages\")",
       "Bash(touch .nojekyll)",
       "Bash(git add .nojekyll)",
-      "Bash(git push origin gh-pages)"
+      "Bash(git push origin gh-pages)",
+      "Bash(chmod +x deploy.sh)"
     ],
     "deny": [],
     "ask": []

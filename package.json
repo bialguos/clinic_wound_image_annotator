@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist --dest . --dotfiles"
-    
+    "deploy": "gh-pages -d dist --dest . --dotfiles",
+    "deploy:manual": "npm run build && cd dist && git init && git add -A && git commit -m \"Deploy\" && git branch -M gh-pages && git remote add origin https://github.com/bialguos/clinic_wound_image_annotator.git 2>nul || git push -f origin gh-pages && cd .."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

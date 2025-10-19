@@ -41,7 +41,27 @@ Esto iniciará un servidor de desarrollo. Abre tu navegador y ve a la dirección
 
 ## Despliegue en GitHub Pages
 
-Sigue estos pasos **uno por uno** para desplegar la aplicación en GitHub Pages:
+### Opción 1: Despliegue Automático (Recomendado)
+
+Ejecuta uno de estos comandos según tu sistema operativo:
+
+**En Windows:**
+```bash
+deploy.bat
+```
+
+Simplemente haz doble clic en el archivo `deploy.bat` o ejecútalo desde la terminal.
+
+**En Mac/Linux:**
+```bash
+./deploy.sh
+```
+
+Este script automáticamente ejecutará todos los pasos necesarios para desplegar tu aplicación en GitHub Pages.
+
+### Opción 2: Despliegue Manual (Paso a Paso)
+
+Si prefieres ejecutar cada paso manualmente, sigue estos pasos **uno por uno**:
 
 ### Paso 1: Construir la aplicación para producción
 
@@ -125,7 +145,21 @@ https://bialguos.github.io/clinic_wound_image_annotator/
 
 ## Despliegues Futuros
 
-Cada vez que quieras actualizar la aplicación en GitHub Pages, repite los pasos del 1 al 9:
+### Método Rápido
+Cada vez que quieras actualizar la aplicación, simplemente ejecuta:
+
+**Windows:**
+```bash
+deploy.bat
+```
+
+**Mac/Linux:**
+```bash
+./deploy.sh
+```
+
+### Método Manual
+Si prefieres hacerlo manualmente, repite estos pasos:
 
 1. `npm run build`
 2. `cd dist`
