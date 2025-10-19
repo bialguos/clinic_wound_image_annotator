@@ -87,19 +87,51 @@ type DBSchema = {
 
 const STORAGE_KEY = 'clinic_db_v1';
 
-function loadDB(): DBSchema {
+import { woundImagesDB, patientsDB, initDB, migrateFromLocalStorage } from './indexedDB';
+
+// Initialize IndexedDB and migrate from localStorage if needed
+let dbInitialized = false;
+const initializeDB = async () => {
+  if (!dbInitialized) {
+    await initDB();
+    await migrateFromLocalStorage();
+    dbInitialized = true;
+  }
+};
+
+// Call initialization
+initializeDB().catch(console.error);
+
+async function loadDB(): Promise<DBSchema> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyDB();
-    return JSON.parse(raw) as DBSchema;
+    await initializeDB();
+
+    // Load from IndexedDB
+    const [patients, woundImages] = await Promise.all([
+      patientsDB.getAll(),
+      woundImagesDB.getAll()
+    ]);
+
+    return {
+      patients: patients || [],
+      wound_categories: [],
+      wound_records: [],
+      wound_images: woundImages || []
+    };
   } catch (e) {
-    console.error('Failed to parse local DB, resetting.', e);
+    console.error('Failed to load from IndexedDB, returning empty DB.', e);
     return emptyDB();
   }
 }
 
-function saveDB(db: DBSchema) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+async function saveDB(db: DBSchema) {
+  try {
+    await initializeDB();
+    // IndexedDB saves are handled individually in insert/update operations
+    // This function is kept for compatibility but does nothing
+  } catch (e) {
+    console.error('Error in saveDB:', e);
+  }
 }
 
 function emptyDB(): DBSchema {
@@ -115,44 +147,39 @@ function nowISO() {
   return new Date().toISOString();
 }
 
-function ensureSeed() {
-  const db = loadDB();
-  let changed = false;
+async function ensureSeed() {
+  try {
+    const db = await loadDB();
 
-  if (!db.patients || db.patients.length === 0) {
-    const patients: Patient[] = Array.from({ length: 10 }).map((_, i) => {
-      const id = crypto.randomUUID();
-      const created_at = nowISO();
-      return {
-        id,
-        full_name: `Paciente ${i + 1}`,
-        age: Math.floor(Math.random() * 80) + 20,
-        medical_record: `HC-${1000 + i}`,
-        admission_day: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'][i % 5],
-        attention_point: `Punto ${((i % 3) + 1)}`,
-        admission_date: created_at,
-        status: 'activo',
-        created_at,
-        updated_at: created_at
-      };
-    });
-    db.patients = patients;
-    changed = true;
+    if (!db.patients || db.patients.length === 0) {
+      const patients: Patient[] = Array.from({ length: 10 }).map((_, i) => {
+        const id = crypto.randomUUID();
+        const created_at = nowISO();
+        return {
+          id,
+          full_name: `Paciente ${i + 1}`,
+          age: Math.floor(Math.random() * 80) + 20,
+          medical_record: `HC-${1000 + i}`,
+          admission_day: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'][i % 5],
+          attention_point: `Punto ${((i % 3) + 1)}`,
+          admission_date: created_at,
+          status: 'activo',
+          created_at,
+          updated_at: created_at
+        };
+      });
+
+      // Save patients to IndexedDB
+      for (const patient of patients) {
+        await patientsDB.put(patient);
+      }
+    }
+  } catch (error) {
+    console.error('Error seeding database:', error);
   }
-
-  if (!db.wound_categories || db.wound_categories.length === 0) {
-    const created_at = nowISO();
-    db.wound_categories = [
-      { id: crypto.randomUUID(), name: 'Curas', parent_id: null, order_index: 0, created_at },
-      { id: crypto.randomUUID(), name: 'Heridas Quirúrgicas', parent_id: null, order_index: 1, created_at }
-    ];
-    changed = true;
-  }
-
-  if (changed) saveDB(db);
 }
 
-ensureSeed();
+ensureSeed().catch(console.error);
 
 // Minimal query builder that mirrors the small subset of Supabase API used in the app.
 function from(table: keyof DBSchema) {
@@ -184,23 +211,14 @@ function from(table: keyof DBSchema) {
       return executor;
     },
     insert(data: any) {
-      // perform insert immediately and return a thenable/selectable object
-      const db = loadDB();
-      const tableArr = (db as any)[table];
+      // Use IndexedDB for insert operations
       const rows = Array.isArray(data) ? data : [data];
-  const created: any[] = rows.map((r: any) => {
+      const created: any[] = rows.map((r: any) => {
         const id = r.id || crypto.randomUUID();
         const created_at = r.created_at || nowISO();
         const base = { id, created_at, updated_at: nowISO() };
         return { ...base, ...r };
       });
-      tableArr.push(...created);
-      saveDB(db);
-
-      const result = {
-        data: created,
-        error: null
-      };
 
       const wrapper: any = {
         select(_cols?: any) {
@@ -208,8 +226,23 @@ function from(table: keyof DBSchema) {
             single: async () => ({ data: created.length === 1 ? created[0] : created, error: null })
           };
         },
-        then: async (resolve: any) => resolve(result),
-  catch: async (_cb: any) => result
+        then: async (resolve: any) => {
+          try {
+            // Save to IndexedDB
+            for (const item of created) {
+              if (table === 'wound_images') {
+                await woundImagesDB.put(item);
+              } else if (table === 'patients') {
+                await patientsDB.put(item);
+              }
+            }
+            resolve({ data: created, error: null });
+          } catch (error) {
+            console.error('Insert error:', error);
+            resolve({ data: null, error });
+          }
+        },
+        catch: async (_cb: any) => ({ data: created, error: null })
       };
 
       return wrapper;
@@ -225,7 +258,7 @@ function from(table: keyof DBSchema) {
     // then makes the object awaitable: await from(...).select() works
     then: async (resolve: any, _reject: any) => {
       try {
-        const db = loadDB();
+        const db = await loadDB();
         let rows = (db as any)[table] as any[];
 
         // apply filters
@@ -247,11 +280,17 @@ function from(table: keyof DBSchema) {
         // handle update
         if (state.updateData) {
           const updated: any[] = [];
-          rows.forEach((r) => {
+          for (const r of rows) {
             const changed = Object.assign(r, state.updateData, { updated_at: nowISO() });
             updated.push(changed);
-          });
-          saveDB(db);
+
+            // Save to IndexedDB
+            if (table === 'wound_images') {
+              await woundImagesDB.put(changed);
+            } else if (table === 'patients') {
+              await patientsDB.put(changed);
+            }
+          }
           const out = { data: updated, error: null };
           return resolve(out);
         }

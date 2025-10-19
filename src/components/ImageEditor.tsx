@@ -11,13 +11,14 @@ type ImageEditorProps = {
   annotations: Annotation[];
   transformations: Transformations;
   imageName?: string;
+  patientName?: string;
   onSave: (annotations: Annotation[], transformations: Transformations, imageName: string, originalImageUrl: string, renderedImageUrl: string) => void;
   onClose: () => void;
 };
 
 type Tool = 'select' | 'text' | 'draw' | 'shape' | 'transform';
 
-export default function ImageEditor({ imageUrl, annotations: initialAnnotations, transformations: initialTransformations, imageName: initialImageName, onSave, onClose }: ImageEditorProps) {
+export default function ImageEditor({ imageUrl, annotations: initialAnnotations, transformations: initialTransformations, imageName: initialImageName, patientName, onSave, onClose }: ImageEditorProps) {
   const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
   const [transformations, setTransformations] = useState<Transformations>(initialTransformations);
   const [imageName, setImageName] = useState<string>(initialImageName || '');
@@ -1198,54 +1199,20 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   return (
     <div className="fixed inset-0 bg-black bg-opacity-80 flex items-stretch justify-center z-50">
       <div className="bg-white w-full h-full flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold">Editor de Imágenes</h2>
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Nombre:</label>
-              <input
-                type="text"
-                value={imageName}
-                onChange={(e) => setImageName(e.target.value)}
-                placeholder="Nombre de la imagen"
-                className="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                style={{ width: '250px' }}
-              />
+        <div className="flex items-center justify-between px-4 py-3 border-b relative">
+          <h2 className="text-lg font-semibold">Editor de Imágenes</h2>
+          {patientName && (
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+              <span className="text-sm text-gray-500">Paciente:</span>
+              <span className="text-lg font-semibold text-gray-900">{patientName}</span>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={clearAll}
-              className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-            >
-              Borrar todo
-            </button>
-            <label className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 rounded cursor-pointer hover:bg-gray-300">
-              <input type="file" accept="image/*" onChange={handleLocalUpload} className="hidden" />
-              <ImageIcon className="w-4 h-4" />
-              Subir
-            </label>
-            <button
-              onClick={() => setShowGallery(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-            >
-              <ImageIcon className="w-4 h-4" />
-              Galería
-            </button>
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              Guardar
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          )}
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
           <div className="flex-1 flex overflow-hidden">
@@ -1289,7 +1256,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
                 </button>
               </div>
             )}
-            <div className="p-4 w-full h-full flex items-center justify-center">
+            <div className="p-4 w-full flex-1 flex flex-col items-center justify-center">
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
@@ -1301,6 +1268,54 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
                 width={displaySize.w}
                 height={displaySize.h}
               />
+
+              {/* Controls below canvas */}
+              <div className="mt-4 w-full max-w-4xl">
+                <div className="bg-white rounded-lg shadow-md p-4 border">
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Image name input */}
+                    <div className="flex items-center gap-2 flex-1">
+                      <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Nombre de la imagen:</label>
+                      <input
+                        type="text"
+                        value={imageName}
+                        onChange={(e) => setImageName(e.target.value)}
+                        placeholder="Ingrese un nombre..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={clearAll}
+                        className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors whitespace-nowrap"
+                      >
+                        Borrar todo
+                      </button>
+                      <label className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 rounded cursor-pointer hover:bg-gray-300 whitespace-nowrap">
+                        <input type="file" accept="image/*" onChange={handleLocalUpload} className="hidden" />
+                        <ImageIcon className="w-4 h-4" />
+                        Subir
+                      </label>
+                      <button
+                        onClick={() => setShowGallery(true)}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors whitespace-nowrap"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        Galería
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors whitespace-nowrap"
+                      >
+                        <Save className="w-4 h-4" />
+                        Guardar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right side panels with absolute positioning */}

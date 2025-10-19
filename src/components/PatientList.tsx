@@ -20,7 +20,7 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
     const { data, error } = await supabase
       .from('patients')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('full_name', { ascending: true });
 
     if (!error && data) {
       setPatients(data);
@@ -28,10 +28,12 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
     setLoading(false);
   };
 
-  const filteredPatients = patients.filter(patient =>
-    patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.medical_record.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPatients = patients
+    .filter(patient =>
+      patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      patient.medical_record.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => a.full_name.localeCompare(b.full_name));
 
   return (
     <div className="h-full flex flex-col bg-white">

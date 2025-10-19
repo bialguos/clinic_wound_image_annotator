@@ -1,4 +1,5 @@
 import { Annotation, Patient, Transformations, WoundRecord, WoundImage, supabase } from './lib/supabase';
+import { woundImagesDB } from './lib/indexedDB';
 
 import { Heart } from 'lucide-react';
 import ImageEditor from './components/ImageEditor';
@@ -111,11 +112,8 @@ function App() {
     }
 
     try {
-      const db = JSON.parse(localStorage.getItem('clinic_db_v1') || '{}');
-      if (db.wound_images) {
-        db.wound_images = db.wound_images.filter((img: WoundImage) => img.id !== imageId);
-        localStorage.setItem('clinic_db_v1', JSON.stringify(db));
-      }
+      // Delete from IndexedDB
+      await woundImagesDB.delete(imageId);
 
       // Reload saved images
       await loadSavedImages();
@@ -230,6 +228,7 @@ function App() {
             annotations={editingImage.annotations}
             transformations={editingImage.transformations}
             imageName={editingImage.imageName}
+            patientName={selectedPatient?.full_name}
             onSave={handleSaveImage}
             onClose={() => {
               setEditingImage(null);
