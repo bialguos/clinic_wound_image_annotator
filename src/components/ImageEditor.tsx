@@ -49,6 +49,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   const [isCropping, setIsCropping] = useState<boolean>(false);
   const [cropArea, setCropArea] = useState<{x: number; y: number; width: number; height: number} | null>(null);
   const [isCropDragging, setIsCropDragging] = useState<boolean>(false);
+  const [previewAnnotation, setPreviewAnnotation] = useState<Annotation | null>(null);
 
   useEffect(() => {
     setCurrentImageUrl(imageUrl);
@@ -123,6 +124,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
     setCropArea(null);
     // Don't change the selectedTool - keep it as 'transform' so the menu stays visible
     setSelectedAnnotationId(null);
+    setPreviewAnnotation(null);
   };
 
   const handleApplyCrop = () => {
@@ -430,7 +432,15 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
 
     // Draw annotations (within the same transformation context)
     // Translate annotations from canvas coordinates to centered coordinates
-    annotations.forEach(annotation => {
+    // Use preview annotation if available for the selected annotation
+    const annotationsToRender = annotations.map(ann => {
+      if (previewAnnotation && ann.id === previewAnnotation.id) {
+        return previewAnnotation;
+      }
+      return ann;
+    });
+
+    annotationsToRender.forEach(annotation => {
       if (annotation.type === 'text') {
         ctx.save();
         // Adjust position: annotations are stored in canvas coordinates (0,0 at top-left)
@@ -706,7 +716,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
         }
       }
     }
-  }, [loadedImage, annotations, transformations, displaySize, tempPath, tempShape, selectedAnnotationId, contrast, invertColors, sharpen, blur, cropArea, isCropping, isCropDragging]);
+  }, [loadedImage, annotations, transformations, displaySize, tempPath, tempShape, selectedAnnotationId, contrast, invertColors, sharpen, blur, cropArea, isCropping, isCropDragging, previewAnnotation]);
 
   // Mouse helpers and handlers
   const getCanvasPos = (e: React.MouseEvent) => {
@@ -880,10 +890,12 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       const clickedAnnotation = findAnnotationAtPoint(p.x, p.y);
       if (clickedAnnotation) {
         setSelectedAnnotationId(clickedAnnotation.id);
+        setPreviewAnnotation(null); // Clear any previous preview
         setIsDragging(true);
         setDragOffset({ x: p.x - clickedAnnotation.x, y: p.y - clickedAnnotation.y });
       } else {
         setSelectedAnnotationId(null);
+        setPreviewAnnotation(null);
       }
       return;
     }
@@ -1142,22 +1154,30 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
     setTempPath([]);
     setTempShape(null);
     setSelectedAnnotationId(null);
+    setPreviewAnnotation(null);
     setContrast(100);
     setInvertColors(false);
     setSharpen(false);
     setBlur(false);
   };
 
+  const handlePreviewAnnotation = (previewAnn: Annotation) => {
+    setPreviewAnnotation(previewAnn);
+  };
+
   const handleUpdateAnnotation = (updatedAnnotation: Annotation) => {
     setAnnotations(prev => prev.map(ann =>
       ann.id === updatedAnnotation.id ? updatedAnnotation : ann
     ));
+    // Clear preview when applying changes
+    setPreviewAnnotation(null);
   };
 
   const handleDeleteAnnotation = () => {
     if (selectedAnnotationId) {
       setAnnotations(prev => prev.filter(ann => ann.id !== selectedAnnotationId));
       setSelectedAnnotationId(null);
+      setPreviewAnnotation(null);
     }
   };
 
@@ -1242,7 +1262,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
             }}
             onCropStart={handleStartCrop}
           />
-          <div className="flex-1 bg-gray-100 overflow-auto flex flex-col items-center justify-center" ref={containerRef}>
+          <div className="flex-1 bg-gray-100 overflow-auto flex flex-col items-center justify-center relative" ref={containerRef}>
             {isCropping && cropArea && (
               <div className="mb-4 flex gap-2">
                 <button
@@ -1272,19 +1292,25 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
                 height={displaySize.h}
               />
             </div>
+
+            {/* Right side panels with absolute positioning */}
+            {selectedTool === 'text' && !selectedAnnotation && (
+              <div className="absolute top-0 right-0 h-full">
+                <TextAnnotationPanel onAddText={handleAddText} />
+              </div>
+            )}
+
+            {selectedAnnotation && (
+              <div className="absolute top-0 right-0 h-full">
+                <AnnotationEditor
+                  annotation={selectedAnnotation}
+                  onUpdate={handleUpdateAnnotation}
+                  onPreview={handlePreviewAnnotation}
+                  onDelete={handleDeleteAnnotation}
+                />
+              </div>
+            )}
           </div>
-
-          {selectedTool === 'text' && !selectedAnnotation && (
-            <TextAnnotationPanel onAddText={handleAddText} />
-          )}
-
-          {selectedAnnotation && (
-            <AnnotationEditor
-              annotation={selectedAnnotation}
-              onUpdate={handleUpdateAnnotation}
-              onDelete={handleDeleteAnnotation}
-            />
-          )}
         </div>
       </div>
       {showGallery && (

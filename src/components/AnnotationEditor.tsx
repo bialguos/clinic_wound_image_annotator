@@ -5,10 +5,11 @@ import { Annotation } from '../lib/supabase';
 type AnnotationEditorProps = {
   annotation: Annotation;
   onUpdate: (annotation: Annotation) => void;
+  onPreview?: (annotation: Annotation) => void;
   onDelete: () => void;
 };
 
-export default function AnnotationEditor({ annotation, onUpdate, onDelete }: AnnotationEditorProps) {
+export default function AnnotationEditor({ annotation, onUpdate, onPreview, onDelete }: AnnotationEditorProps) {
   const [content, setContent] = useState(annotation.content);
   const [fontSize, setFontSize] = useState(annotation.fontSize || 16);
   const [fontFamily, setFontFamily] = useState(annotation.fontFamily || 'Arial');
@@ -46,6 +47,33 @@ export default function AnnotationEditor({ annotation, onUpdate, onDelete }: Ann
       }
     }
   }, [annotation]);
+
+  // Preview changes in real-time
+  useEffect(() => {
+    if (onPreview && annotation.type === 'text') {
+      onPreview({
+        ...annotation,
+        content,
+        fontSize,
+        fontFamily,
+        fontWeight,
+        fontStyle,
+        textDecoration,
+        color,
+        rotation
+      });
+    }
+  }, [content, fontSize, fontFamily, fontWeight, fontStyle, textDecoration, color, rotation]);
+
+  // Preview shape changes in real-time
+  useEffect(() => {
+    if (onPreview && annotation.type === 'shape') {
+      onPreview({
+        ...annotation,
+        content: JSON.stringify(shapeData)
+      });
+    }
+  }, [shapeData]);
 
   const handleApply = () => {
     onUpdate({
