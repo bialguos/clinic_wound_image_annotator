@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronRight } from 'lucide-react';
+import { Search, ChevronRight, Plus } from 'lucide-react';
 import { supabase, Patient } from '../lib/supabase';
 
 type PatientListProps = {
@@ -36,7 +36,7 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
   return (
     <div className="h-full flex flex-col bg-white">
       <div className="p-4 border-b">
-        <div className="relative">
+        <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -46,6 +46,7 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+        <p className="text-xs text-gray-500 mb-2">Selecciona un paciente para añadir una imagen:</p>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -58,10 +59,9 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
         ) : (
           <div className="divide-y divide-gray-100">
             {filteredPatients.map((patient) => (
-              <button
+              <div
                 key={patient.id}
-                onClick={() => onSelectPatient(patient)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group"
               >
                 <div className="flex-1">
                   <div className="font-medium text-gray-900">{patient.full_name}</div>
@@ -71,8 +71,14 @@ export default function PatientList({ onSelectPatient }: PatientListProps) {
                     {patient.admission_day && ` • ${patient.admission_day}`}
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
-              </button>
+                <button
+                  onClick={() => onSelectPatient(patient)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Plus className="w-4 h-4" />
+                  Añadir
+                </button>
+              </div>
             ))}
           </div>
         )}

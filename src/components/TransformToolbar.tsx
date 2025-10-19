@@ -29,6 +29,7 @@ type TransformToolbarProps = {
   onSharpenToggle?: () => void;
   blur?: boolean;
   onBlurToggle?: () => void;
+  onCropStart?: () => void;
 };
 
 const tools = [
@@ -53,7 +54,8 @@ export default function TransformToolbar({
   sharpen = false,
   onSharpenToggle,
   blur = false,
-  onBlurToggle
+  onBlurToggle,
+  onCropStart
 }: TransformToolbarProps) {
   return (
     <div className="w-56 bg-gray-50 border-r flex flex-col overflow-hidden">
@@ -170,7 +172,10 @@ export default function TransformToolbar({
                 </div>
               </div>
 
-              <button className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded hover:bg-gray-50 transition-colors">
+              <button
+                onClick={onCropStart}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded hover:bg-gray-50 transition-colors"
+              >
                 <Crop className="w-4 h-4" />
                 Recortar
               </button>

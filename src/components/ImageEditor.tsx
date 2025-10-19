@@ -46,6 +46,9 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   const [invertColors, setInvertColors] = useState<boolean>(false);
   const [sharpen, setSharpen] = useState<boolean>(false);
   const [blur, setBlur] = useState<boolean>(false);
+  const [isCropping, setIsCropping] = useState<boolean>(false);
+  const [cropArea, setCropArea] = useState<{x: number; y: number; width: number; height: number} | null>(null);
+  const [isCropDragging, setIsCropDragging] = useState<boolean>(false);
 
   useEffect(() => {
     setCurrentImageUrl(imageUrl);
@@ -113,6 +116,85 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
     // Save the current image URL (not the flattened canvas)
     // This allows editing individual annotations later
     onSave(annotations, transformations, imageName.trim(), currentImageUrl);
+  };
+
+  const handleStartCrop = () => {
+    setIsCropping(true);
+    setCropArea(null);
+    // Don't change the selectedTool - keep it as 'transform' so the menu stays visible
+    setSelectedAnnotationId(null);
+  };
+
+  const handleApplyCrop = () => {
+    if (!cropArea || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Normalize crop area (handle negative widths/heights)
+    const x = cropArea.width < 0 ? cropArea.x + cropArea.width : cropArea.x;
+    const y = cropArea.height < 0 ? cropArea.y + cropArea.height : cropArea.y;
+    const width = Math.abs(cropArea.width);
+    const height = Math.abs(cropArea.height);
+
+    // Create a temporary canvas for the cropped area
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    // Copy the cropped area from the main canvas
+    tempCtx.drawImage(canvas, x, y, width, height, 0, 0, width, height);
+
+    // Convert to data URL and set as new image
+    const croppedImageUrl = tempCanvas.toDataURL('image/png');
+    setCurrentImageUrl(croppedImageUrl);
+
+    // Update display size
+    setDisplaySize({ w: width, h: height });
+
+    // Adjust annotations positions relative to crop
+    setAnnotations(prev => prev.map(ann => {
+      if (ann.type === 'text') {
+        return { ...ann, x: ann.x - x, y: ann.y - y };
+      } else if (ann.type === 'draw') {
+        try {
+          const pts = JSON.parse((ann as any).content) as Array<{x:number;y:number}>;
+          const newPts = pts.map(pt => ({ x: pt.x - x, y: pt.y - y }));
+          return { ...ann, content: JSON.stringify(newPts), x: ann.x - x, y: ann.y - y };
+        } catch (e) {
+          return ann;
+        }
+      } else if (ann.type === 'shape') {
+        try {
+          const data = JSON.parse((ann as any).content) as any;
+          if (data.kind === 'rect') {
+            data.x -= x;
+            data.y -= y;
+          } else if (data.kind === 'circle') {
+            data.cx -= x;
+            data.cy -= y;
+          }
+          return { ...ann, content: JSON.stringify(data), x: ann.x - x, y: ann.y - y };
+        } catch (e) {
+          return ann;
+        }
+      }
+      return ann;
+    }));
+
+    // Reset crop state
+    setIsCropping(false);
+    setCropArea(null);
+    setIsCropDragging(false);
+  };
+
+  const handleCancelCrop = () => {
+    setIsCropping(false);
+    setCropArea(null);
+    setIsCropDragging(false);
   };
 
   const handleLocalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -438,6 +520,55 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       ctx.restore();
     }
 
+    // Restore the main transformation context (applied to image + all annotations)
+    ctx.restore();
+
+    // Draw crop area overlay if present (draw on untransformed canvas)
+    if (cropArea && isCropping) {
+      const cropX = cropArea.width < 0 ? cropArea.x + cropArea.width : cropArea.x;
+      const cropY = cropArea.height < 0 ? cropArea.y + cropArea.height : cropArea.y;
+      const cropW = Math.abs(cropArea.width);
+      const cropH = Math.abs(cropArea.height);
+
+      // Draw darkened overlay on the areas OUTSIDE the crop rectangle
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+
+      // Top rectangle
+      if (cropY > 0) {
+        ctx.fillRect(0, 0, canvas.width, cropY);
+      }
+
+      // Bottom rectangle
+      if (cropY + cropH < canvas.height) {
+        ctx.fillRect(0, cropY + cropH, canvas.width, canvas.height - (cropY + cropH));
+      }
+
+      // Left rectangle
+      if (cropX > 0) {
+        ctx.fillRect(0, cropY, cropX, cropH);
+      }
+
+      // Right rectangle
+      if (cropX + cropW < canvas.width) {
+        ctx.fillRect(cropX + cropW, cropY, canvas.width - (cropX + cropW), cropH);
+      }
+
+      // Draw crop rectangle border
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 5]);
+      ctx.strokeRect(cropX, cropY, cropW, cropH);
+      ctx.setLineDash([]);
+
+      // Draw corner handles
+      const handleSize = 10;
+      ctx.fillStyle = '#00ff00';
+      ctx.fillRect(cropX - handleSize/2, cropY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(cropX + cropW - handleSize/2, cropY - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(cropX - handleSize/2, cropY + cropH - handleSize/2, handleSize, handleSize);
+      ctx.fillRect(cropX + cropW - handleSize/2, cropY + cropH - handleSize/2, handleSize, handleSize);
+    }
+
     // Draw selection indicator
     if (selectedAnnotationId) {
       const selectedAnn = annotations.find(a => a.id === selectedAnnotationId);
@@ -465,10 +596,7 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
         }
       }
     }
-
-    // Restore the main transformation context (applied to image + all annotations)
-    ctx.restore();
-  }, [loadedImage, annotations, transformations, displaySize, tempPath, tempShape, selectedAnnotationId, contrast, invertColors, sharpen, blur]);
+  }, [loadedImage, annotations, transformations, displaySize, tempPath, tempShape, selectedAnnotationId, contrast, invertColors, sharpen, blur, cropArea, isCropping, isCropDragging]);
 
   // Mouse helpers and handlers
   const getCanvasPos = (e: React.MouseEvent) => {
@@ -570,6 +698,13 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   const handleMouseDown = (e: React.MouseEvent) => {
     const p = getCanvasPos(e);
 
+    // Handle crop mode
+    if (isCropping) {
+      setCropArea({ x: p.x, y: p.y, width: 0, height: 0 });
+      setIsCropDragging(true);
+      return;
+    }
+
     // Check if we're clicking on a resize handle of selected annotation
     if (selectedAnnotationId) {
       const selectedAnn = annotations.find(a => a.id === selectedAnnotationId);
@@ -617,6 +752,16 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const p = getCanvasPos(e);
+
+    // Handle crop area drawing (only when dragging)
+    if (isCropping && isCropDragging && cropArea) {
+      setCropArea({
+        ...cropArea,
+        width: p.x - cropArea.x,
+        height: p.y - cropArea.y
+      });
+      return;
+    }
 
     // Handle resizing
     if (resizingHandle && selectedAnnotationId) {
@@ -736,6 +881,12 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   };
 
   const handleMouseUp = () => {
+    // Handle crop completion - stop dragging but keep area selected
+    if (isCropping && isCropDragging) {
+      setIsCropDragging(false);
+      return;
+    }
+
     if (resizingHandle) {
       setResizingHandle(null);
       return;
@@ -915,8 +1066,25 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
               setBlur(!blur);
               if (!blur) setSharpen(false); // Disable sharpen when enabling blur
             }}
+            onCropStart={handleStartCrop}
           />
-          <div className="flex-1 bg-gray-100 overflow-auto flex items-center justify-center" ref={containerRef}>
+          <div className="flex-1 bg-gray-100 overflow-auto flex flex-col items-center justify-center" ref={containerRef}>
+            {isCropping && cropArea && (
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={handleApplyCrop}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-medium"
+                >
+                  Aplicar Recorte
+                </button>
+                <button
+                  onClick={handleCancelCrop}
+                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
             <div className="p-4 w-full h-full flex items-center justify-center">
               <canvas
                 ref={canvasRef}
