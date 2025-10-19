@@ -13,6 +13,7 @@ function App() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [editingImage, setEditingImage] = useState<{ id?: string; imageUrl: string; annotations: Annotation[]; transformations: Transformations; imageName?: string } | null>(null);
   const [savedImages, setSavedImages] = useState<WoundImage[]>([]);
+  const [hoveredImageId, setHoveredImageId] = useState<string | null>(null);
 
   // Load saved images on mount and when patient changes
   useEffect(() => {
@@ -67,12 +68,13 @@ function App() {
     setView('list');
   };
 
-  const handleSaveImage = async (annotations: Annotation[], transformations: Transformations, imageName: string, finalImageUrl: string) => {
+  const handleSaveImage = async (annotations: Annotation[], transformations: Transformations, imageName: string, originalImageUrl: string, renderedImageUrl: string) => {
     try {
       if (editingImage?.id) {
         // Update existing image
         await supabase.from('wound_images').eq('id', editingImage.id).update({
-          image_url: finalImageUrl, // Save the final rendered image
+          image_url: originalImageUrl, // Save the original image for editing
+          thumbnail_url: renderedImageUrl, // Save the rendered canvas for preview
           annotations,
           transformations,
           image_name: imageName,
@@ -82,8 +84,8 @@ function App() {
         // Create new image
         await supabase.from('wound_images').insert({
           wound_record_id: 'default', // You can link to actual wound record later
-          image_url: finalImageUrl, // Save the final rendered image
-          thumbnail_url: null,
+          image_url: originalImageUrl, // Save the original image for editing
+          thumbnail_url: renderedImageUrl, // Save the rendered canvas for preview
           image_name: imageName,
           annotations,
           transformations,
@@ -158,7 +160,9 @@ function App() {
                     {savedImages.map((image) => (
                       <div
                         key={image.id}
-                        className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                        className="px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group relative"
+                        onMouseEnter={() => setHoveredImageId(image.id)}
+                        onMouseLeave={() => setHoveredImageId(null)}
                       >
                         <div
                           className="flex-1 cursor-pointer"
@@ -186,6 +190,23 @@ function App() {
                         >
                           Eliminar
                         </button>
+
+                        {/* Tooltip with image preview */}
+                        {hoveredImageId === image.id && (
+                          <div className="absolute left-0 top-full mt-2 z-50 pointer-events-none">
+                            <div className="bg-white rounded-lg shadow-2xl border-2 border-gray-200 p-3">
+                              <img
+                                src={image.thumbnail_url || image.image_url}
+                                alt={image.image_name || 'Preview'}
+                                className="max-w-sm max-h-80 object-contain"
+                                style={{ minWidth: '250px', minHeight: '180px' }}
+                              />
+                              <div className="mt-2 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 text-center">
+                                {image.image_name || 'Sin nombre'}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

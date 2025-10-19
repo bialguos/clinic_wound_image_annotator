@@ -11,7 +11,7 @@ type ImageEditorProps = {
   annotations: Annotation[];
   transformations: Transformations;
   imageName?: string;
-  onSave: (annotations: Annotation[], transformations: Transformations, imageName: string, finalImageUrl: string) => void;
+  onSave: (annotations: Annotation[], transformations: Transformations, imageName: string, originalImageUrl: string, renderedImageUrl: string) => void;
   onClose: () => void;
 };
 
@@ -114,9 +114,19 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
       return;
     }
 
-    // Save the current image URL (not the flattened canvas)
-    // This allows editing individual annotations later
-    onSave(annotations, transformations, imageName.trim(), currentImageUrl);
+    // Capture the rendered canvas (with all annotations) as a preview/thumbnail
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      alert('Error al capturar la imagen');
+      return;
+    }
+
+    // Create a preview image from the canvas
+    const renderedImageUrl = canvas.toDataURL('image/png');
+
+    // Save both: the original image URL (for editing) and the rendered version (for preview)
+    // We pass the rendered image as the finalImageUrl which will be used for thumbnail_url
+    onSave(annotations, transformations, imageName.trim(), currentImageUrl, renderedImageUrl);
   };
 
   const handleStartCrop = () => {
