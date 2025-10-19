@@ -10,15 +10,17 @@ type ImageEditorProps = {
   imageUrl: string;
   annotations: Annotation[];
   transformations: Transformations;
-  onSave: (annotations: Annotation[], transformations: Transformations) => void;
+  imageName?: string;
+  onSave: (annotations: Annotation[], transformations: Transformations, imageName: string, finalImageUrl: string) => void;
   onClose: () => void;
 };
 
 type Tool = 'select' | 'text' | 'draw' | 'shape' | 'transform';
 
-export default function ImageEditor({ imageUrl, annotations: initialAnnotations, transformations: initialTransformations, onSave, onClose }: ImageEditorProps) {
+export default function ImageEditor({ imageUrl, annotations: initialAnnotations, transformations: initialTransformations, imageName: initialImageName, onSave, onClose }: ImageEditorProps) {
   const [annotations, setAnnotations] = useState<Annotation[]>(initialAnnotations);
   const [transformations, setTransformations] = useState<Transformations>(initialTransformations);
+  const [imageName, setImageName] = useState<string>(initialImageName || '');
   const [selectedTool, setSelectedTool] = useState<Tool>('select');
   const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -103,7 +105,14 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
   };
 
   const handleSave = () => {
-    onSave(annotations, transformations);
+    if (!imageName.trim()) {
+      alert('Por favor ingresa un nombre para la imagen');
+      return;
+    }
+
+    // Save the current image URL (not the flattened canvas)
+    // This allows editing individual annotations later
+    onSave(annotations, transformations, imageName.trim(), currentImageUrl);
   };
 
   const handleLocalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -835,7 +844,20 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
     <div className="fixed inset-0 bg-black bg-opacity-80 flex items-stretch justify-center z-50">
       <div className="bg-white w-full h-full flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <h2 className="text-lg font-semibold">Editor de Imágenes</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold">Editor de Imágenes</h2>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700">Nombre:</label>
+              <input
+                type="text"
+                value={imageName}
+                onChange={(e) => setImageName(e.target.value)}
+                placeholder="Nombre de la imagen"
+                className="px-3 py-1.5 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                style={{ width: '250px' }}
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={clearAll}

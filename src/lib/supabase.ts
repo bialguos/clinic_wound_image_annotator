@@ -41,10 +41,12 @@ export type WoundImage = {
   wound_record_id: string;
   image_url: string;
   thumbnail_url: string | null;
+  image_name?: string;
   annotations: Annotation[];
   transformations: Transformations;
   order_index: number;
   created_at: string;
+  updated_at?: string;
 };
 
 export type Annotation = {

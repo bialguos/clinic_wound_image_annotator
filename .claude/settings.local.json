@@ -10,7 +10,11 @@
       "Bash(git commit -m \"Deploy\")",
       "Bash(git branch -M gh-pages)",
       "Bash(git remote add origin https://github.com/bialguos/clinic_wound_image_annotator.git)",
-      "Bash(git push -f origin gh-pages)"
+      "Bash(git push -f origin gh-pages)",
+      "Bash(git fetch origin gh-pages)",
+      "Bash(npm run build)",
+      "Bash(git checkout gh-pages)",
+      "Bash(git commit -m \"Add .nojekyll\")"
     ],
     "deny": [],
     "ask": []
