@@ -1241,16 +1241,16 @@ export default function ImageEditor({ imageUrl, annotations: initialAnnotations,
           />
           <div className="flex-1 bg-gray-100 overflow-auto flex flex-col items-center justify-center relative" ref={containerRef}>
             {isCropping && cropArea && (
-              <div className="mb-4 flex gap-2">
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2 bg-white px-4 py-3 rounded-lg shadow-lg border-2 border-green-500">
                 <button
                   onClick={handleApplyCrop}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-medium"
+                  className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-medium shadow-sm"
                 >
                   Aplicar Recorte
                 </button>
                 <button
                   onClick={handleCancelCrop}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors font-medium"
+                  className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors font-medium shadow-sm"
                 >
                   Cancelar
                 </button>
